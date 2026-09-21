@@ -1,0 +1,37 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Takeda-Log credentials and personal data
+.takeda-profile/
+.takeda-auth*.json
+data/
+*.csv
+*.state.json
+logs/
+dist/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# macOS
+.DS_Store
+__MACOSX/
+
+# Editor
+.vscode/
+.idea/
+
+# Local backups and test caches
+*.bak-*
+.pytest_cache/

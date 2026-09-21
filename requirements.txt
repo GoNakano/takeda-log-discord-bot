@@ -1,0 +1,4 @@
+# 本番（Oracle E2 / Python 3.9）で動作確認しているバージョン
+discord.py==2.7.1
+playwright==1.60.0
+python-dotenv==1.2.1

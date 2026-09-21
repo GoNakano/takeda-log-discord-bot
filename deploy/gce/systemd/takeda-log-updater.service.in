@@ -1,0 +1,21 @@
+[Unit]
+Description=Update Takeda-Log attendance CSV
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__APP_USER__
+WorkingDirectory=__PROJECT_DIR__
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME=__PROJECT_DIR__/.runtime-home
+Environment=PLAYWRIGHT_BROWSERS_PATH=__USER_HOME__/.cache/ms-playwright
+ExecStart=__PROJECT_DIR__/.venv/bin/python __PROJECT_DIR__/takeda_updater.py
+TimeoutStartSec=180
+Nice=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__PROJECT_DIR__

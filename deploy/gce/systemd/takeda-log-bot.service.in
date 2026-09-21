@@ -1,0 +1,24 @@
+[Unit]
+Description=Takeda-Log Discord Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__PROJECT_DIR__
+Environment=PYTHONUNBUFFERED=1
+Environment=HOME=__PROJECT_DIR__/.runtime-home
+Environment=PLAYWRIGHT_BROWSERS_PATH=__USER_HOME__/.cache/ms-playwright
+ExecStart=__PROJECT_DIR__/.venv/bin/python __PROJECT_DIR__/bot.py
+Restart=always
+RestartSec=10
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__PROJECT_DIR__
+
+[Install]
+WantedBy=multi-user.target

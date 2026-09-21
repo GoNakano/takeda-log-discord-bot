@@ -1,0 +1,20 @@
+[Unit]
+Description=Takeda-Log CSV Updater (oneshot)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=opc
+WorkingDirectory=/opt/takeda-log-bot
+Environment=HOME=/opt/takeda-log-bot/.runtime-home
+Environment=PLAYWRIGHT_BROWSERS_PATH=/home/opc/.cache/ms-playwright
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/xvfb-run -a -s "-screen 0 1920x1080x24 -nolisten tcp" /opt/takeda-log-bot/.venv/bin/python /opt/takeda-log-bot/takeda_updater.py
+TimeoutStartSec=900
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

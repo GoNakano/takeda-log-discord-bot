@@ -1,0 +1,6 @@
+[Unit]
+Description=Takeda-Log service health check
+
+[Service]
+Type=oneshot
+ExecStart=__PROJECT_DIR__/deploy/oracle/health_check.sh

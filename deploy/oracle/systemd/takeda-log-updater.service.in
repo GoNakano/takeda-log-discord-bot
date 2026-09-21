@@ -1,0 +1,22 @@
+[Unit]
+Description=Takeda-Log CSV Updater
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__PROJECT_DIR__
+Environment=HOME=__USER_HOME__
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/xvfb-run -a -s "-screen 0 1280x960x24 -nolisten tcp" __PROJECT_DIR__/.venv/bin/python __PROJECT_DIR__/takeda_updater.py --loop
+Restart=on-failure
+RestartPreventExitStatus=2
+RestartSec=60
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

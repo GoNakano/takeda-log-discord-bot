@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Takeda-Log CSV updater every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+AccuracySec=30s
+Unit=takeda-log-updater.service
+
+[Install]
+WantedBy=timers.target

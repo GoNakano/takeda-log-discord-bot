@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PROJECT_DIR="__PROJECT_DIR__"
+AUTH_MARKER="$PROJECT_DIR/.takeda-profile/.auth-required"
+
+if ! systemctl is-active --quiet takeda-log-bot.service; then
+    systemctl restart takeda-log-bot.service
+fi
+
+# 認証切れの場合はTakeda-Logへ繰り返しアクセスしない。
+if [[ -f "$AUTH_MARKER" ]]; then
+    exit 0
+fi
+
+if ! systemctl is-active --quiet takeda-log-updater.service; then
+    systemctl restart takeda-log-updater.service
+fi
