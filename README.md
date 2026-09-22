@@ -2,7 +2,7 @@
 
 塾の入退室管理システム「Takeda-Log」の登下校履歴を自動で取得し、Discordのスラッシュコマンドから生徒ごとの直近1週間の入退室状況を確認できるようにするPython製Botです。
 
-2026年8月から塾の本番Discordサーバーで稼働しています。前身は外部APIを使っていた [nyutai-discord-bot](https://github.com/GoNakano/nyutai-discord-bot) で、入退室管理システムの変更によりAPIが使えなくなったため、データ取得の仕組みを作り直しました。
+2026年7月29日から塾の本番Discordサーバーで稼働しています。前身は外部APIを使っていた [nyutai-discord-bot](https://github.com/GoNakano/nyutai-discord-bot) で、入退室管理システムの変更によりAPIが使えなくなったため、データ取得の仕組みを作り直しました。
 
 ## できること
 
@@ -34,7 +34,7 @@ CSV取得とDiscord Botを別プロセスに分けているため、取得に失
 
 ### APIがないシステムからデータを取る
 
-Takeda-LogにはAPIがなく、管理画面から期間を指定してCSVを出力する機能だけがあります。そこで、人が行う操作（ログイン → 登下校履歴 → 期間選択 → CSV出力）をPlaywrightで自動化しました。画面の表を読み取るのではなく、公式のCSV出力機能を使うことで、画面デザインの変化に比較的強くしています。
+開発時に利用可能な外部APIを確認できず、管理画面には期間を指定してCSVを出力する機能がありました。そこで、人が行う操作（ログイン → 登下校履歴 → 期間選択 → CSV出力）をPlaywrightで自動化しました。画面の表を読み取るのではなく、公式のCSV出力機能を使うことで、画面デザインの変化に比較的強くしています。
 
 ### 壊れたデータで上書きしない
 
@@ -44,13 +44,17 @@ Takeda-LogにはAPIがなく、管理画面から期間を指定してCSVを出�
 
 認証に失敗した場合は `.auth-required` という停止マーカーを作り、以後は人が再ログインするまで自動取得を止めます。短時間に何度もログインを試みてアカウントがロックされることを防ぐためです。
 
+### 保存済みセッションを優先する
+
+本番では、Macで作成したPlaywrightの保存済みセッション（`.takeda-auth.json`）をサーバーへ転送して利用します。設定値がそろっている場合は自動ログインも1回だけ試せる実装ですが、Oracle上では安定運用を確認できていないため、通常運用の前提にはしていません。セッションが切れた場合はMacで再ログインし、認証状態を更新します。
+
 ### 完全無料で常時稼働させる
 
 GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必要）と比較し、既存のPythonコードをほぼそのまま使えるOracle Cloud Always Freeを選びました。東京リージョンのA1（ARM）インスタンスは在庫不足で作成できなかったため、Always Free対象のE2.1.Micro（実メモリ約500MB）で動かしています。メモリが少ないため、ブラウザを常駐させず10分ごとに起動・終了する方式にしています。
 
 ### クラウド上でだけ起きる不具合への対処
 
-同じコードがMacでは動くのにOracle上では失敗する問題がありました。調べると、期間選択欄の高さがOracle上でだけ0pxになり、クリックできなくなっていました。自動化ツール（Playwright/Selenium）やOS（Oracle Linux/Ubuntu）、フォント、画面サイズ、ブラウザのバージョンを1つずつ変えて比較しても再現したため、送信元のネットワーク環境に起因するサイト側の挙動と判断し、操作前に要素の寸法をJavaScriptで復元する方法で回避しています（`takeda_updater.py` の `_select_period`）。
+同じコードがMacでは動くのにOracle上では失敗する問題がありました。調べると、期間選択欄の高さがOracle上でだけ0pxになり、クリックできなくなっていました。自動化ツール（Playwright/Selenium）やOS（Oracle Linux/Ubuntu）、フォント、画面サイズ、ブラウザのバージョンを変えても再現しました。送信元のネットワーク環境は有力な仮説の1つですが、根本原因は未確定です。現在は、操作前に要素の寸法をJavaScriptで復元する方法で回避しています（`takeda_updater.py` の `_select_period`）。
 
 ### 月をまたぐ期間
 
@@ -85,9 +89,9 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 
 ## セットアップの概要
 
-1. `.env.example` を `.env` にコピーし、Discord Bot Token、Takeda-Logの登下校履歴URLなどを設定する（`.env` は権限600にする）
+1. `.env.example` を `.env` にコピーし、Discord Bot Token、Takeda-Logの登下校履歴画面など必要な設定を行う（`.env` は権限600にする）
 2. `python -m pip install -r requirements.txt` と `python -m playwright install chromium`
-3. Takeda-Logのセッションを用意する（Macで `python takeda_updater.py --login` を実行して `.takeda-auth.json` を作り、サーバーへ転送する）
+3. Macで `python takeda_updater.py --login` を実行して `.takeda-auth.json` を作り、安全な方法でサーバーへ転送する（Gitには追加しない）
 4. `python takeda_updater.py --force` で1回取得できることを確認する
 5. `deploy/oracle-e2/systemd/` のユニットを `/etc/systemd/system/` に配置し、`takeda-log-bot.service` と `takeda-log-updater.timer` を有効化する
 
@@ -97,7 +101,7 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 |---|---|
 | `DISCORD_TOKEN` | Discord BotのToken |
 | `TAKEDA_HISTORY_URL` | Takeda-Logの登下校履歴画面のURL |
-| `TAKEDA_LOGIN_EMAIL` / `TAKEDA_LOGIN_PASSWORD` | 自動ログイン用（セッション切れ時のみ使用） |
+| `TAKEDA_LOGIN_EMAIL` / `TAKEDA_LOGIN_PASSWORD` | 任意の自動ログイン用。失敗時は停止し、本番運用では保存済みセッションを優先 |
 | `UPDATE_START_HOUR` / `UPDATE_END_HOUR` | 取得する時間帯（本番は9〜23時） |
 | `DISCORD_ALERT_USER_ID` | 監視通知を送る相手（1人のDMのみ） |
 | `ALERT_AFTER_MINUTES` / `ALERT_REPEAT_HOURS` | 異常とみなす時間（60分）と再通知間隔（6時間） |
@@ -117,3 +121,5 @@ python -m pytest tests
 ```
 
 `tests/test_takeda_updater.py` の一部は、ログイン画面が切り替わらない場合の待機時間を実時間で確認するため、完了まで数分かかります。
+
+2026年9月22日の記録では36件中35件が成功し、1件（自動ログイン画面を模したモック）が失敗しています。本番で使用する保存済みセッション経路とは別ですが、テスト全件成功には未到達です。
