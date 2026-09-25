@@ -17,6 +17,11 @@ load_dotenv()
 
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN", "").strip()
 DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID", "").strip()
+# コマンドを受け付けるサーバーID（カンマ区切り）。未設定ならDISCORD_GUILD_IDを使う。
+# 設定されている場合、他のサーバーやDMからのコマンドは拒否する。
+ALLOWED_GUILD_IDS_RAW = (
+    os.getenv("DISCORD_ALLOWED_GUILD_IDS", "").strip() or DISCORD_GUILD_ID
+)
 CSV_PATH = Path(os.getenv("TAKEDA_CSV_PATH", "data/latest.csv")).expanduser()
 
 # 監視通知は、ここで指定した1人のDMだけへ送る。未設定なら通知しない。
@@ -29,8 +34,51 @@ ALERT_REPEAT_HOURS = int(os.getenv("ALERT_REPEAT_HOURS", "6"))
 ALERT_START_HOUR = int(os.getenv("UPDATE_START_HOUR", "9"))
 ALERT_END_HOUR = int(os.getenv("UPDATE_END_HOUR", "23"))
 
+
+def parse_guild_ids(raw: str) -> frozenset[int]:
+    """カンマ区切りのサーバーIDを読み取る。数字以外が含まれていればValueError。"""
+
+    guild_ids = set()
+    for part in raw.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if not part.isdigit():
+            raise ValueError(f"サーバーIDは数字だけで設定してください: {part}")
+        guild_ids.add(int(part))
+    return frozenset(guild_ids)
+
+
+def is_allowed_guild(guild_id: int | None, allowed_guild_ids: frozenset[int]) -> bool:
+    """許可リストが空なら全て許可する。設定済みなら、そのサーバー内だけ許可する（DMは拒否）。"""
+
+    if not allowed_guild_ids:
+        return True
+    return guild_id is not None and guild_id in allowed_guild_ids
+
+
+try:
+    ALLOWED_GUILD_IDS = parse_guild_ids(ALLOWED_GUILD_IDS_RAW)
+except ValueError:
+    ALLOWED_GUILD_IDS = frozenset()  # main()で起動を止める。
+
+
+class GuildRestrictedTree(app_commands.CommandTree):
+    """許可していないサーバーやDMからのスラッシュコマンドを拒否する。"""
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if is_allowed_guild(interaction.guild_id, ALLOWED_GUILD_IDS):
+            return True
+        print(f"許可していない場所からのコマンドを拒否しました（guild_id={interaction.guild_id}）")
+        await interaction.response.send_message(
+            "このBotは許可されたサーバーでのみ利用できます。",
+            ephemeral=True,
+        )
+        return False
+
+
 intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = commands.Bot(command_prefix="/", intents=intents, tree_cls=GuildRestrictedTree)
 
 
 def create_status_message(updated_at: datetime, *, now: datetime | None = None) -> str:
@@ -297,8 +345,19 @@ async def _before_monitor() -> None:
 
 
 @bot.event
+async def on_guild_join(guild: discord.Guild) -> None:
+    # 許可リスト外のサーバーに追加された場合は、そのサーバーから退出する。
+    if is_allowed_guild(guild.id, ALLOWED_GUILD_IDS):
+        return
+    print(f"許可していないサーバーに追加されたため退出します（guild_id={guild.id}）")
+    await guild.leave()
+
+
+@bot.event
 async def on_ready() -> None:
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    if not ALLOWED_GUILD_IDS:
+        print("警告: DISCORD_ALLOWED_GUILD_IDSが未設定のため、全てのサーバーからのコマンドを受け付けます。")
     if ALERT_USER_ID and not monitor_csv_health.is_running():
         monitor_csv_health.start()
         print("CSV監視を開始しました（通知先: 指定ユーザーのDMのみ）")
@@ -321,6 +380,10 @@ def main() -> None:
         raise RuntimeError("DISCORD_TOKENが設定されていません。")
     if DISCORD_GUILD_ID and not DISCORD_GUILD_ID.isdigit():
         raise RuntimeError("DISCORD_GUILD_IDは数字だけで設定してください。")
+    try:
+        parse_guild_ids(ALLOWED_GUILD_IDS_RAW)
+    except ValueError as exc:
+        raise RuntimeError(f"DISCORD_ALLOWED_GUILD_IDSの形式が正しくありません。{exc}") from exc
     if ALERT_USER_ID and not ALERT_USER_ID.isdigit():
         raise RuntimeError("DISCORD_ALERT_USER_IDは数字だけで設定してください。")
     bot.run(DISCORD_TOKEN)

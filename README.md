@@ -104,6 +104,7 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 | `TAKEDA_HISTORY_URL` | Takeda-Logの登下校履歴画面のURL |
 | `TAKEDA_LOGIN_EMAIL` / `TAKEDA_LOGIN_PASSWORD` | 任意の自動ログイン用。失敗時は停止し、本番運用では保存済みセッションを優先 |
 | `UPDATE_START_HOUR` / `UPDATE_END_HOUR` | 取得する時間帯（本番は9〜23時） |
+| `DISCORD_ALLOWED_GUILD_IDS` | コマンドを受け付けるサーバーID（カンマ区切り）。未設定なら `DISCORD_GUILD_ID` を使う。設定すると他のサーバーやDMからのコマンドを拒否し、許可外のサーバーに追加された場合は退出する |
 | `DISCORD_ALERT_USER_ID` | 監視通知を送る相手（1人のDMのみ） |
 | `ALERT_AFTER_MINUTES` / `ALERT_REPEAT_HOURS` | 異常とみなす時間（60分）と再通知間隔（6時間） |
 
@@ -114,6 +115,7 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 - 生徒名やCSVの内容はログに出さない。`/status` も更新時刻だけを表示する
 - CSVは直近7日分だけを保持し、Discordへ添付しない
 - 監視通知は指定した1人のDMにのみ送る
+- `DISCORD_ALLOWED_GUILD_IDS` を設定すると、許可したサーバー以外からのコマンドを受け付けない
 
 ## テスト
 
@@ -123,4 +125,4 @@ python -m pytest tests
 
 `tests/test_takeda_updater.py` の一部は、ログイン画面が切り替わらない場合の待機時間を実時間で確認するため、完了まで数分かかります。
 
-2026年9月22日の記録では36件中35件が成功し、1件（自動ログイン画面を模したモック）が失敗しています。本番で使用する保存済みセッション経路とは別ですが、テスト全件成功には未到達です。
+2026年9月26日時点で、Macのローカル環境（Python 3.13）では41件すべて成功しています。本番環境（Python 3.9）でのテスト実行は未確認です。
