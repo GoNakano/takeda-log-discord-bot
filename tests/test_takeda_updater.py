@@ -186,15 +186,23 @@ class TakedaUpdaterTest(unittest.TestCase):
         login_button = MagicMock()
         login_button.count.return_value = 1
         email_input = MagicMock()
-        email_input.count.side_effect = [0, 1]
+        # 最初は校舎担当者の選択画面で、ボタンを押した後にログイン欄が表示される。
+        email_counts = iter([0])
+        email_input.count.side_effect = lambda: next(email_counts, 1)
+        # ログインボタンを押した後は、ログイン欄が非表示になる（画面が切り替わった）。
+        email_input.is_visible.return_value = False
         password_input = MagicMock()
         password_input.count.return_value = 1
         period_input = MagicMock()
+        csv_button = MagicMock()
+        missing_navigation = MagicMock()
+        missing_navigation.count.return_value = 0
 
-        page.get_by_role.side_effect = lambda _role, name, exact: {
+        page.get_by_role.side_effect = lambda _role, name, exact=False: {
             "校舎担当者": staff_button,
             "管理ログイン": login_button,
-        }[name]
+            "CSV出力": csv_button,
+        }.get(name, missing_navigation)
         page.get_by_placeholder.side_effect = lambda name, exact: {
             "メールアドレス": email_input,
             "パスワード": password_input,
@@ -207,6 +215,7 @@ class TakedaUpdaterTest(unittest.TestCase):
         password_input.fill.assert_called_once_with("secret")
         login_button.click.assert_called_once()
         page.goto.assert_called_once()
+        csv_button.wait_for.assert_called_once()
 
     @patch.dict(
         "os.environ",
