@@ -12,21 +12,22 @@
 
 ## 仕組み
 
-```text
-                    Oracle Cloud Always Free（VM.Standard.E2.1.Micro / Oracle Linux 9）
- ┌──────────────────────────────────────────────────────────────────────────────┐
- │  systemd timer（10分ごと）                                                    │
- │     └─ takeda-log-updater.service（単発実行）                                 │
- │          └─ Xvfb（仮想画面）上の Chromium を Playwright で操作                  │
- │               1. 保存済みのセッション（Cookie）で Takeda-Log を開く             │
- │               2. 「登下校履歴」→ 期間に直近7日を指定 → 「CSV出力」              │
- │               3. CSV の形式を検証し、正しい場合だけ最新版と差し替える            │
- │                                   │                                          │
- │                                   ▼  data/latest.csv（所有者のみ読める）       │
- │  takeda-log-bot.service（常駐・停止時は自動再起動）                            │
- │     └─ discord.py: /log /status、15分ごとの健全性チェック                      │
- └──────────────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph OCI["Oracle Cloud Always Free（VM.Standard.E2.1.Micro / Oracle Linux 9）"]
+        timer["systemd timer（10分ごと）"] --> updater["takeda-log-updater.service（単発実行）"]
+        updater --> browser["Chromium（Xvfb上）をPlaywrightで操作<br>CSVを取得・検証"]
+        browser --> csv[("data/latest.csv（所有者のみ読める）")]
+        csv --> bot["takeda-log-bot.service（常駐・自動再起動）<br>/log・/status、15分ごとの健全性チェック"]
+    end
+    bot --> discord["Discordサーバー"]
 ```
+
+CSV取得（`takeda-log-updater.service`）の流れ：
+
+1. 保存済みのセッション（Cookie）でTakeda-Logを開く
+2. 「登下校履歴」を開き、期間に直近7日を指定して「CSV出力」を押す
+3. CSVの形式を検証し、正しい場合だけ `data/latest.csv`（所有者のみ読める）を差し替える
 
 CSV取得とDiscord Botを別プロセスに分けているため、取得に失敗してもBotは前回の正常なデータで応答し続けます。
 
