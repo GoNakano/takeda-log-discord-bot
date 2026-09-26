@@ -10,8 +10,8 @@ if [[ ! -x ".venv/bin/python" ]]; then
   exit 1
 fi
 
-echo "以前チャットへ貼ったDiscord Bot Tokenは無効化し、新しいTokenへ入れ替えましたか？"
-read -r "ANSWER?再発行済みなら YES と入力してください: "
+echo "転送ファイルには、Developer Portalで再発行した新しいDiscord Bot Tokenを入れます。"
+read -r "ANSWER?Tokenを再発行して保存済みなら YES と入力してください: "
 if [[ "$ANSWER" != "YES" ]]; then
   echo "安全のため中止しました。"
   read -r "?Enterを押すと閉じます: "

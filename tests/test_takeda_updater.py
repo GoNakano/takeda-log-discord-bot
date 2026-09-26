@@ -248,8 +248,12 @@ class TakedaUpdaterTest(unittest.TestCase):
             "期間を選択": period_input,
         }[name]
 
-        with self.assertRaises(AuthenticationRequired):
-            _try_automatic_login(page, "https://example.com/history")
+        # ログイン画面が切り替わらないまま時間切れになる状況を、実時間を待たずに再現する。
+        # monotonic() を呼ぶたびに1秒進む時計に差し替える。
+        fake_clock = iter(range(100_000))
+        with patch("takeda_updater.monotonic", side_effect=lambda: next(fake_clock)):
+            with self.assertRaises(AuthenticationRequired):
+                _try_automatic_login(page, "https://example.com/history")
         login_button.click.assert_called_once()
 
     @patch.dict("os.environ", {"UPDATE_INTERVAL_MINUTES": "10"})

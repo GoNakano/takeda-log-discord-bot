@@ -61,7 +61,7 @@ def main() -> int:
     parser.add_argument(
         "--token-rotated",
         action="store_true",
-        help="過去に画面へ表示したDiscord Tokenを再発行済みであることを確認する",
+        help="サーバーへ送る前にDiscord Tokenを再発行し、保存済みであることを確認する",
     )
     args = parser.parse_args()
 
