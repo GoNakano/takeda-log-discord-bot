@@ -1,5 +1,7 @@
 # Takeda-Log Discord Bot
 
+[![Tests](https://github.com/GoNakano/takeda-log-discord-bot/actions/workflows/test.yml/badge.svg)](https://github.com/GoNakano/takeda-log-discord-bot/actions/workflows/test.yml)
+
 塾の入退室管理システム「Takeda-Log」の登下校履歴を自動で取得し、Discordのスラッシュコマンドから生徒ごとの直近1週間の入退室状況を確認できるようにするPython製Botです。
 
 2026年7月29日から塾の本番Discordサーバーで稼働しています。前身は外部APIを使っていた [nyutai-discord-bot](https://github.com/GoNakano/nyutai-discord-bot) で、入退室管理システムの変更によりAPIが使えなくなったため、データ取得の仕組みを作り直しました。
@@ -124,6 +126,4 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 python -m pytest tests
 ```
 
-`tests/test_takeda_updater.py` の一部は、ログイン画面が切り替わらない場合の待機時間を実時間で確認するため、完了まで数分かかります。
-
-2026年9月26日時点で、Macのローカル環境（Python 3.13）では41件すべて成功しています。本番環境（Python 3.9）でのテスト実行は未確認です。
+ブラウザ操作やDiscordはモックに置き換えているため、実際のTakeda-LogやDiscordには接続しません。GitHub Actionsで、本番と同じPython 3.9を使ってpushのたびに実行しています。

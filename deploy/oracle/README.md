@@ -18,7 +18,7 @@
 
 ## Macで準備する
 
-1. Discord Developer Portalで、以前チャットへ貼ったTokenをReset Tokenする。
+1. Discord Developer PortalでTokenを再発行（Reset Token）する。
 2. `Discord Tokenだけ更新.command`を実行し、新しいTokenだけを保存する。
 3. `Takeda-Log自動ログイン設定.command`を実行し、専用アカウントのメールアドレスとパスワードを非表示で保存する。
 4. Macのログイン状態を使わない自動ログイン・CSV取得テストが成功したことを確認する。
