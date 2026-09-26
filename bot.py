@@ -26,6 +26,10 @@ CSV_PATH = Path(os.getenv("TAKEDA_CSV_PATH", "data/latest.csv")).expanduser()
 
 # 監視通知は、ここで指定した1人のDMだけへ送る。未設定なら通知しない。
 ALERT_USER_ID = os.getenv("DISCORD_ALERT_USER_ID", "").strip()
+# Botとの個人DMでコマンドを使えるユーザーID（カンマ区切り）。未設定なら監視通知の送信先を使う。
+ALLOWED_DM_USER_IDS_RAW = (
+    os.getenv("DISCORD_ALLOWED_DM_USER_IDS", "").strip() or ALERT_USER_ID
+)
 # CSVがこの分数以上更新されていなければ異常とみなす。
 ALERT_AFTER_MINUTES = int(os.getenv("ALERT_AFTER_MINUTES", "60"))
 # 異常が続く間、この間隔を空けて再通知する（鳴らしっぱなしを避ける）。
@@ -35,18 +39,18 @@ ALERT_START_HOUR = int(os.getenv("UPDATE_START_HOUR", "9"))
 ALERT_END_HOUR = int(os.getenv("UPDATE_END_HOUR", "23"))
 
 
-def parse_guild_ids(raw: str) -> frozenset[int]:
-    """カンマ区切りのサーバーIDを読み取る。数字以外が含まれていればValueError。"""
+def parse_ids(raw: str) -> frozenset[int]:
+    """カンマ区切りのDiscord ID（サーバー・ユーザー）を読み取る。数字以外が含まれていればValueError。"""
 
-    guild_ids = set()
+    ids = set()
     for part in raw.split(","):
         part = part.strip()
         if not part:
             continue
         if not part.isdigit():
-            raise ValueError(f"サーバーIDは数字だけで設定してください: {part}")
-        guild_ids.add(int(part))
-    return frozenset(guild_ids)
+            raise ValueError(f"IDは数字だけで設定してください: {part}")
+        ids.add(int(part))
+    return frozenset(ids)
 
 
 def is_allowed_guild(guild_id: int | None, allowed_guild_ids: frozenset[int]) -> bool:
@@ -57,10 +61,19 @@ def is_allowed_guild(guild_id: int | None, allowed_guild_ids: frozenset[int]) ->
     return guild_id is not None and guild_id in allowed_guild_ids
 
 
+def is_allowed_dm_user(is_direct_message: bool, user_id: int, allowed_user_ids: frozenset[int]) -> bool:
+    """Botとの1対1のDMで、許可したユーザーからのコマンドだけを許可する。"""
+
+    return is_direct_message and user_id in allowed_user_ids
+
+
 try:
-    ALLOWED_GUILD_IDS = parse_guild_ids(ALLOWED_GUILD_IDS_RAW)
+    ALLOWED_GUILD_IDS = parse_ids(ALLOWED_GUILD_IDS_RAW)
+    ALLOWED_DM_USER_IDS = parse_ids(ALLOWED_DM_USER_IDS_RAW)
 except ValueError:
-    ALLOWED_GUILD_IDS = frozenset()  # main()で起動を止める。
+    # main()で起動を止める。
+    ALLOWED_GUILD_IDS = frozenset()
+    ALLOWED_DM_USER_IDS = frozenset()
 
 
 class GuildRestrictedTree(app_commands.CommandTree):
@@ -68,6 +81,11 @@ class GuildRestrictedTree(app_commands.CommandTree):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if is_allowed_guild(interaction.guild_id, ALLOWED_GUILD_IDS):
+            return True
+        is_direct_message = (
+            getattr(interaction.channel, "type", None) == discord.ChannelType.private
+        )
+        if is_allowed_dm_user(is_direct_message, interaction.user.id, ALLOWED_DM_USER_IDS):
             return True
         print(f"許可していない場所からのコマンドを拒否しました（guild_id={interaction.guild_id}）")
         await interaction.response.send_message(
@@ -381,9 +399,13 @@ def main() -> None:
     if DISCORD_GUILD_ID and not DISCORD_GUILD_ID.isdigit():
         raise RuntimeError("DISCORD_GUILD_IDは数字だけで設定してください。")
     try:
-        parse_guild_ids(ALLOWED_GUILD_IDS_RAW)
+        parse_ids(ALLOWED_GUILD_IDS_RAW)
     except ValueError as exc:
         raise RuntimeError(f"DISCORD_ALLOWED_GUILD_IDSの形式が正しくありません。{exc}") from exc
+    try:
+        parse_ids(ALLOWED_DM_USER_IDS_RAW)
+    except ValueError as exc:
+        raise RuntimeError(f"DISCORD_ALLOWED_DM_USER_IDSの形式が正しくありません。{exc}") from exc
     if ALERT_USER_ID and not ALERT_USER_ID.isdigit():
         raise RuntimeError("DISCORD_ALERT_USER_IDは数字だけで設定してください。")
     bot.run(DISCORD_TOKEN)

@@ -105,6 +105,7 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 | `TAKEDA_LOGIN_EMAIL` / `TAKEDA_LOGIN_PASSWORD` | 任意の自動ログイン用。失敗時は停止し、本番運用では保存済みセッションを優先 |
 | `UPDATE_START_HOUR` / `UPDATE_END_HOUR` | 取得する時間帯（本番は9〜23時） |
 | `DISCORD_ALLOWED_GUILD_IDS` | コマンドを受け付けるサーバーID（カンマ区切り）。未設定なら `DISCORD_GUILD_ID` を使う。設定すると他のサーバーやDMからのコマンドを拒否し、許可外のサーバーに追加された場合は退出する |
+| `DISCORD_ALLOWED_DM_USER_IDS` | Botとの個人DMでコマンドを使えるユーザーID（カンマ区切り）。未設定なら `DISCORD_ALERT_USER_ID` を使う |
 | `DISCORD_ALERT_USER_ID` | 監視通知を送る相手（1人のDMのみ） |
 | `ALERT_AFTER_MINUTES` / `ALERT_REPEAT_HOURS` | 異常とみなす時間（60分）と再通知間隔（6時間） |
 
@@ -115,7 +116,7 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 - 生徒名やCSVの内容はログに出さない。`/status` も更新時刻だけを表示する
 - CSVは直近7日分だけを保持し、Discordへ添付しない
 - 監視通知は指定した1人のDMにのみ送る
-- `DISCORD_ALLOWED_GUILD_IDS` を設定すると、許可したサーバー以外からのコマンドを受け付けない
+- `DISCORD_ALLOWED_GUILD_IDS` を設定すると、許可したサーバー以外からのコマンドを受け付けない（個人DMは `DISCORD_ALLOWED_DM_USER_IDS` のユーザーだけ使える）
 
 ## テスト
 
