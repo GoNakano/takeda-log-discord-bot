@@ -19,6 +19,7 @@ from takeda_updater import (
     _try_automatic_login,
     _update_interval_seconds,
     _within_update_window,
+    download_once,
 )
 
 
@@ -264,6 +265,76 @@ class TakedaUpdaterTest(unittest.TestCase):
     def test_update_interval_rejects_excessive_access(self):
         with self.assertRaises(RuntimeError):
             _update_interval_seconds()
+
+
+class DownloadOnceAuthenticationTest(unittest.TestCase):
+    """systemd timerから呼ばれる単発実行（download_once）の認証失敗時の動作。"""
+
+    def setUp(self):
+        temporary_directory = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary_directory.cleanup)
+        root = Path(temporary_directory.name)
+        self.profile_dir = root / "profile"
+        environment = patch.dict(
+            "os.environ",
+            {
+                "TAKEDA_HISTORY_URL": "https://example.com/history",
+                "TAKEDA_CSV_PATH": str(root / "data/latest.csv"),
+                "TAKEDA_PROFILE_DIR": str(self.profile_dir),
+                "TAKEDA_AUTH_STATE": str(root / "auth.json"),
+            },
+            clear=True,
+        )
+        environment.start()
+        self.addCleanup(environment.stop)
+        for target in ("takeda_updater.load_dotenv", "playwright.sync_api.sync_playwright"):
+            patcher = patch(target)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_session_expired_on_history_page_stops_future_attempts(self):
+        # 保存済みセッションでブラウザは開けたが、履歴画面でログイン切れが判明する場合。
+        with patch(
+            "takeda_updater._open_download_context",
+            return_value=(None, MagicMock()),
+        ), patch(
+            "takeda_updater._download_with_context",
+            side_effect=AuthenticationRequired("session expired"),
+        ):
+            with self.assertRaises(AuthenticationRequired):
+                download_once(force=True)
+
+        self.assertTrue(_auth_required_marker(self.profile_dir).exists())
+
+        # 次回のtimer実行では、ブラウザを起動せずに止まる。
+        with patch("takeda_updater._open_download_context") as open_context:
+            with self.assertRaises(AuthenticationRequired):
+                download_once(force=True)
+        open_context.assert_not_called()
+
+    def test_missing_login_information_stops_future_attempts(self):
+        with patch(
+            "takeda_updater._open_download_context",
+            side_effect=AuthenticationRequired("no login information"),
+        ):
+            with self.assertRaises(AuthenticationRequired):
+                download_once(force=True)
+
+        self.assertTrue(_auth_required_marker(self.profile_dir).exists())
+
+    def test_other_failures_do_not_stop_future_attempts(self):
+        # 画面の一時的な不具合などは、次回のtimer実行で再試行する。
+        with patch(
+            "takeda_updater._open_download_context",
+            return_value=(None, MagicMock()),
+        ), patch(
+            "takeda_updater._download_with_context",
+            side_effect=RuntimeError("calendar not found"),
+        ):
+            with self.assertRaises(RuntimeError):
+                download_once(force=True)
+
+        self.assertFalse(_auth_required_marker(self.profile_dir).exists())
 
 
 if __name__ == "__main__":
