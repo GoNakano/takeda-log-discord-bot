@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import os
+import threading
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import discord
@@ -10,7 +12,7 @@ from discord import app_commands
 from discord.ext import commands, tasks
 from dotenv import load_dotenv
 
-from csv_store import AttendanceRecord, CsvFormatError, load_snapshot
+from csv_store import AttendanceRecord, AttendanceSnapshot, CsvFormatError, load_snapshot
 
 
 load_dotenv()
@@ -93,6 +95,40 @@ class GuildRestrictedTree(app_commands.CommandTree):
             ephemeral=True,
         )
         return False
+
+
+class SnapshotCache:
+    """CSVの解析結果を、ファイルが変わるか日付が変わるまで使い回す。
+
+    CSVは10分ごとにしか更新されないため、コマンドのたびに解析し直すと
+    取得処理（Chromium）とCPUを取り合う時間が無駄に増える。
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        self._lock = threading.Lock()
+        self._key: tuple[object, ...] | None = None
+        self._snapshot: AttendanceSnapshot | None = None
+
+    def load(self) -> AttendanceSnapshot:
+        with self._lock:
+            # 存在しなければFileNotFoundErrorをそのまま呼び出し元へ返す。
+            stat = self.path.expanduser().resolve().stat()
+            # 「直近7日」は今日の日付で決まるため、日付もキーに含める。
+            key = (stat.st_ino, stat.st_mtime_ns, stat.st_size, date.today())
+            if key != self._key or self._snapshot is None:
+                # 解析に失敗した場合は前回の結果を残さない。
+                self._key = None
+                self._snapshot = load_snapshot(self.path)
+                self._key = key
+            return self._snapshot
+
+    async def load_async(self) -> AttendanceSnapshot:
+        # 読み込みと解析はイベントループの外で行い、他のコマンドやハートビートを止めない。
+        return await asyncio.to_thread(self.load)
+
+
+snapshot_cache = SnapshotCache(CSV_PATH)
 
 
 intents = discord.Intents.default()
@@ -235,7 +271,7 @@ async def log(interaction: discord.Interaction, name: str) -> None:
     await interaction.response.defer(thinking=True, ephemeral=False)
 
     try:
-        snapshot = load_snapshot(CSV_PATH)
+        snapshot = await snapshot_cache.load_async()
     except FileNotFoundError:
         await interaction.followup.send(
             "Takeda-LogのCSVがまだ取得されていません。",
@@ -276,8 +312,11 @@ async def log(interaction: discord.Interaction, name: str) -> None:
 
 @bot.tree.command(name="status", description="BotとCSV更新の状態を確認します")
 async def status(interaction: discord.Interaction) -> None:
+    # 3秒以内に応答しないとDiscord側で失敗扱いになるため、先に受け付けだけ返す。
+    await interaction.response.defer(thinking=True, ephemeral=True)
+
     try:
-        snapshot = load_snapshot(CSV_PATH)
+        snapshot = await snapshot_cache.load_async()
     except FileNotFoundError:
         message = "⚠️ Botはオンラインですが、CSVはまだ取得されていません。"
     except CsvFormatError:
@@ -285,7 +324,7 @@ async def status(interaction: discord.Interaction) -> None:
     else:
         message = create_status_message(snapshot.updated_at)
 
-    await interaction.response.send_message(message, ephemeral=True)
+    await interaction.followup.send(message, ephemeral=True)
 
 
 def diagnose_csv_health(*, now: datetime | None = None) -> tuple[bool, str]:
@@ -293,7 +332,7 @@ def diagnose_csv_health(*, now: datetime | None = None) -> tuple[bool, str]:
 
     reference_time = now or datetime.now()
     try:
-        snapshot = load_snapshot(CSV_PATH)
+        snapshot = snapshot_cache.load()
     except FileNotFoundError:
         return False, "CSVがまだ一度も取得できていません。"
     except CsvFormatError:
@@ -336,7 +375,7 @@ async def monitor_csv_health() -> None:
     if not (ALERT_START_HOUR < now.hour < ALERT_END_HOUR):
         return
 
-    healthy, detail = diagnose_csv_health(now=now)
+    healthy, detail = await asyncio.to_thread(diagnose_csv_health, now=now)
     last_sent = _alert_state.get("last_sent")
 
     if healthy:
