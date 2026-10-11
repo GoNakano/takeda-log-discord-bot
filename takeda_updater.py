@@ -650,15 +650,11 @@ def download_once(*, force: bool = False) -> int:
         browser = None
         context = None
         try:
-            try:
-                browser, context = _open_download_context(
-                    playwright,
-                    profile_dir,
-                    auth_state_path,
-                )
-            except AuthenticationRequired:
-                _mark_authentication_required(profile_dir)
-                raise
+            browser, context = _open_download_context(
+                playwright,
+                profile_dir,
+                auth_state_path,
+            )
             _download_with_context(
                 context,
                 history_url=history_url,
@@ -667,6 +663,11 @@ def download_once(*, force: bool = False) -> int:
                 now=now,
             )
             return 0
+        except AuthenticationRequired:
+            # セッション切れや自動ログイン失敗は画面を開いた後にも起きる。
+            # どこで起きても停止マーカーを作り、次回以降のログイン連打を防ぐ。
+            _mark_authentication_required(profile_dir)
+            raise
         except PlaywrightTimeoutError as exc:
             raise RuntimeError("Takeda-Logの画面またはCSV出力が時間内に応答しませんでした。") from exc
         finally:
