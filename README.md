@@ -6,9 +6,10 @@
 
 2026年7月29日から塾の本番Discordサーバーで稼働しています。前身は外部APIを使っていた [nyutai-discord-bot](https://github.com/GoNakano/nyutai-discord-bot) で、入退室管理システムの変更によりAPIが使えなくなったため、データ取得の仕組みを作り直しました。
 
-## 自分が担当したこと
+## 開発の進め方
 
-- 塾での課題の発見と、必要な機能の決定（生徒名で検索して直近1週間の記録を見る）。サーバーの用意、再ログインなどの日々の運用、不具合の原因の切り分けとDiscordでの動作確認
+- **自分**：塾での課題の発見と、必要な機能の決定（生徒名で検索して直近1週間の記録を見る）。サーバーの用意、再ログインなどの日々の運用、不具合の原因の切り分けとDiscordでの動作確認
+- **Claude Code・Codex**：コードの実装、テスト、導入スクリプトの作成
 
 ## できること
 
@@ -73,7 +74,7 @@ GCE（外部IPv4が有料）やCloudflare Workers（大幅な作り直しが必�
 - Oracle Cloud Infrastructure（Always Free、VM.Standard.E2.1.Micro、Oracle Linux 9）
 - systemd（service / timer）、Xvfb
 - pytest / unittest
-- Claude Code、Codex（開発ツール）
+- Claude Code、Codex（実装・テスト）
 
 ## ファイル構成
 
